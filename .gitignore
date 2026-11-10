@@ -1,0 +1,18 @@
+# Arquivos com credenciais
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+# Ambiente e caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/
+reports/
+# Backups e arquivos de base locais
+*.xlsx
+*.xls
+descontos_pdv.txt
+*.log

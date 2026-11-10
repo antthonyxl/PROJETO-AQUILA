@@ -1,0 +1,10 @@
+*
+!requirements.txt
+!requirements.lock
+!app.py
+!aquila_visual.py
+!aquila_runtime.py
+!ranking_compacto.py
+!ingestao.py
+!rob_ingestao.py
+!rob_metricas.py

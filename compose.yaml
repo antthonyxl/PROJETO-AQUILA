@@ -1,0 +1,38 @@
+x-aquila: &aquila
+  build: .
+  restart: unless-stopped
+  environment:
+    STREAMLIT_SERVER_COOKIE_SECRET: ${AQUILA_COOKIE_SECRET:?Defina AQUILA_COOKIE_SECRET no ambiente}
+    AQUILA_DB_POOL_MAX: ${AQUILA_DB_POOL_MAX:-8}
+    AQUILA_DB_MAX_WAITING: 100
+  volumes:
+    - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    - ./.streamlit/config.toml:/app/.streamlit/config.toml:ro
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  aq1: *aquila
+  aq2: *aquila
+  aq3: *aquila
+  aq4: *aquila
+  proxy:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      aq1: {condition: service_healthy}
+      aq2: {condition: service_healthy}
+      aq3: {condition: service_healthy}
+      aq4: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
