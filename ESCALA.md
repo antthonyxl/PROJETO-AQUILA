@@ -44,9 +44,11 @@ servidor; não há Docker/Nginx disponível nesta estação de trabalho.
 1. Preserve `.streamlit/secrets.toml`. Ele é montado em modo de leitura e não
    entra na imagem. Garanta que o usuário de UID 10001 no contêiner consiga ler
    esse arquivo e o `config.toml`.
-2. Copie `.env.example` para `.env`. Gere uma chave aleatória, preencha
-   `AQUILA_COOKIE_SECRET` e conserve a mesma chave nos reinícios. `.env` está
-   ignorado pelo Git. Para gerar uma chave:
+2. Preserve o `.env` existente. Em uma instalação nova, crie esse arquivo na
+   raiz do projeto com `AQUILA_COOKIE_SECRET=<chave aleatória>` e
+   `AQUILA_DB_POOL_MAX=8`, cada variável em sua própria linha. Gere a chave
+   com o comando abaixo e conserve a mesma chave nos reinícios. `.env` está
+   ignorado pelo Git; não coloque a chave em arquivos versionados.
 
    ```powershell
    .venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -67,6 +69,18 @@ servidor; não há Docker/Nginx disponível nesta estação de trabalho.
 5. Abra `http://localhost:8080`. A porta fica restrita ao host por padrão.
    Integre esse endereço ao proxy HTTPS da infraestrutura para acesso externo.
    Não são publicados os quatro servidores Streamlit diretamente.
+
+   Para acesso externo, configure domínio e certificado no proxy HTTPS do
+   mesmo servidor e encaminhe o tráfego para `http://127.0.0.1:8080`.
+   Esse proxy deve preservar `Host`, encaminhar os cabeçalhos WebSocket
+   `Upgrade` e `Connection`, aceitar uploads de pelo menos 260 MB e usar
+   timeout de leitura de pelo menos 300 segundos. Deve também sobrescrever
+   `X-Forwarded-Proto` com o protocolo recebido (`https` na conexão TLS),
+   sem confiar no cabeçalho enviado pelo cliente. O Nginx interno usa esse
+   valor para encaminhar o protocolo e marcar o cookie de afinidade como
+   `Secure` em HTTPS. Mantenha a porta 8080 restrita ao loopback; essa
+   configuração confia no proxy local. Domínio, certificado e configuração
+   do proxy externo ainda precisam ser definidos antes da publicação.
 
 Não é necessário executar migração SQL. Publicar base, ROB ou meta limpa o cache
 do processo que recebeu a operação; nos demais, as consultas expiram em até cinco

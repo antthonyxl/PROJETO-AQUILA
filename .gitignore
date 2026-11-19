@@ -16,3 +16,4 @@ reports/
 *.xls
 descontos_pdv.txt
 *.log
+secrets.toml.example
