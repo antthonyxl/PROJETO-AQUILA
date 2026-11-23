@@ -284,14 +284,69 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         for loja in lojas
         if codigo_loja(loja) in hierarquia
     ]
-    estados = sorted({item["estado"] for item in metadados_disponiveis if item["estado"]})
-    distritos = sorted({item["distrito"] for item in metadados_disponiveis if item["distrito"]})
-    regioes = sorted({item["regiao"] for item in metadados_disponiveis if item["regiao"]})
 
     meses = {"Todos": None, "Janeiro": 1, "Fevereiro": 2, "Março": 3,
              "Abril": 4, "Maio": 5, "Junho": 6, "Julho": 7, "Agosto": 8,
              "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12}
-    with st.form(f"filtros_{chave}", border=True):
+
+    # Os filtros geográficos ficam fora de st.form para que o Streamlit
+    # atualize as opções dos outros campos imediatamente após cada seleção.
+    chave_estado = f"{chave}_filtros_confirmados"
+    chaves_geo = {
+        "estados": f"{chave}_estados",
+        "distritos": f"{chave}_distritos",
+        "regioes": f"{chave}_regioes",
+    }
+    for nome, widget_key in chaves_geo.items():
+        st.session_state.setdefault(widget_key, [])
+
+    def registros_compativeis(ignorar: str) -> list[dict[str, str]]:
+        selecionados = {
+            nome: set(st.session_state.get(widget_key, []))
+            for nome, widget_key in chaves_geo.items()
+        }
+        resultado = []
+        for item in metadados_disponiveis:
+            if any(
+                selecionados[nome] and item[campo] not in selecionados[nome]
+                for nome, campo in (
+                    ("estados", "estado"),
+                    ("distritos", "distrito"),
+                    ("regioes", "regiao"),
+                )
+                if nome != ignorar
+            ):
+                continue
+            resultado.append(item)
+        return resultado
+
+    # Cada lista apresenta apenas valores compatíveis com as seleções
+    # feitas nos outros dois filtros geográficos.
+    opcoes_geo = {
+        "estados": sorted({
+            item["estado"] for item in registros_compativeis("estados")
+            if item["estado"]
+        }),
+        "distritos": sorted({
+            item["distrito"] for item in registros_compativeis("distritos")
+            if item["distrito"]
+        }),
+        "regioes": sorted({
+            item["regiao"] for item in registros_compativeis("regioes")
+            if item["regiao"]
+        }),
+    }
+
+    # Remove automaticamente seleções que deixaram de ser compatíveis.
+    # Isso evita combinações impossíveis e listas sem correspondência.
+    for nome, widget_key in chaves_geo.items():
+        valores_validos = set(opcoes_geo[nome])
+        st.session_state[widget_key] = [
+            valor for valor in st.session_state[widget_key]
+            if valor in valores_validos
+        ]
+
+    with st.container(border=True):
         st.markdown('<div class="aq-panel-title">Filtros de consulta</div>', unsafe_allow_html=True)
         a, b, c, d = st.columns([1, 1.2, 2, 1.2])
         with a:
@@ -306,29 +361,32 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         e, f, g = st.columns([1, 1.2, 1.2])
         with e:
             estados_sel = st.multiselect(
-                "Estado", estados, placeholder="Todos os estados",
-                key=f"{chave}_estados", disabled=not estados,
-                help="Selecione um ou mais estados cadastrados no JSON."
+                "Estado", opcoes_geo["estados"], placeholder="Todos os estados",
+                key=chaves_geo["estados"], disabled=not opcoes_geo["estados"],
+                help="Selecione um ou mais estados. Distrito e Região serão ajustados automaticamente."
             )
         with f:
             distritos_sel = st.multiselect(
-                "Distrito", distritos, placeholder="Todos os distritos",
-                key=f"{chave}_distritos", disabled=not distritos,
-                help="Selecione um ou mais distritos cadastrados no JSON."
+                "Distrito", opcoes_geo["distritos"], placeholder="Todos os distritos",
+                key=chaves_geo["distritos"], disabled=not opcoes_geo["distritos"],
+                help="Exibe somente distritos compatíveis com Estado e Região selecionados."
             )
         with g:
             regioes_sel = st.multiselect(
-                "Região", regioes, placeholder="Todas as regiões",
-                key=f"{chave}_regioes", disabled=not regioes,
-                help="Selecione uma ou mais regiões cadastradas no JSON."
+                "Região", opcoes_geo["regioes"], placeholder="Todas as regiões",
+                key=chaves_geo["regioes"], disabled=not opcoes_geo["regioes"],
+                help="Exibe somente regiões compatíveis com Estado e Distrito selecionados."
             )
+
         if not metadados_disponiveis:
             st.caption("Para habilitar Estado, Distrito e Região, cadastre em lojas_hierarquia.json os códigos que aparecem no início do campo empresa da base.")
-        enviado = st.form_submit_button("Aplicar filtros", type="primary", icon=":material/filter_alt:")
+        enviado = st.button(
+            "Aplicar filtros", type="primary", icon=":material/filter_alt:",
+            key=f"{chave}_aplicar_filtros"
+        )
 
-    # Só publica novos parâmetros depois do submit. Outros widgets, como o tema ou
-    # as colunas opcionais do ranking, não mudam o escopo da consulta por acidente.
-    chave_estado = f"{chave}_filtros_confirmados"
+    # As alterações nos campos atualizam as listas, mas só afetam os dados
+    # do dashboard quando o usuário clica em Aplicar filtros.
     if enviado or chave_estado not in st.session_state:
         st.session_state[chave_estado] = {
             "ano": ano,
@@ -341,7 +399,6 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         }
 
     escopo = dict(st.session_state[chave_estado])
-    # Compatibilidade com sessões que já estavam abertas antes da inclusão dos filtros.
     escopo.setdefault("estados", ())
     escopo.setdefault("distritos", ())
     escopo.setdefault("regioes", ())
