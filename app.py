@@ -24,7 +24,7 @@ from ranking_compacto import preparar_ranking_compacto
 from decimal import Decimal
 import re
 
-st.set_page_config(page_title="Ambiente de Desenvolvimento | Descontos PDV", page_icon=":material/analytics:", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Controle Descontos PDV", page_icon=":material/analytics:", layout="wide", initial_sidebar_state="expanded")
 
 if "aq_dark" not in st.session_state:
     st.session_state.aq_dark = False
