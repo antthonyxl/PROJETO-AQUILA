@@ -237,19 +237,25 @@ def carregar_hierarquia_lojas() -> dict[str, dict[str, str]]:
     return hierarquia
 
 
-def condicoes(ano, mes, lojas, origem, filtro_hierarquia_ativo=False) -> tuple[str, tuple]:
+def condicoes(ano, meses, lojas, origem, filtro_hierarquia_ativo=False) -> tuple[str, tuple]:
     partes: list[str] = []
     params: list = []
+
+    # Lista vazia representa Todos os meses. Uma ou mais seleções geram IN.
+    meses_selecionados = (
+        [] if meses in (None, "Todos", ()) else
+        [int(meses)] if isinstance(meses, (int, str)) else
+        [int(mes) for mes in meses]
+    )
+
     if ano != "Todos":
         ano_num = int(ano)
-        inicio = dt.date(ano_num, int(mes) if mes != "Todos" else 1, 1)
-        fim = (dt.date(ano_num + 1, 1, 1) if mes == "Todos" or int(mes) == 12
-               else dt.date(ano_num, int(mes) + 1, 1))
         partes.extend(["dta_movimento >= %s", "dta_movimento < %s"])
-        params.extend([inicio, fim])
-    elif mes != "Todos":
-        partes.append("EXTRACT(MONTH FROM dta_movimento)::int = %s")
-        params.append(int(mes))
+        params.extend([dt.date(ano_num, 1, 1), dt.date(ano_num + 1, 1, 1)])
+
+    if meses_selecionados:
+        partes.append("EXTRACT(MONTH FROM dta_movimento)::int = ANY(%s)")
+        params.append(meses_selecionados)
     if lojas:
         partes.append("empresa = ANY(%s)")
         params.append(list(lojas))
@@ -352,7 +358,10 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         with a:
             ano = st.selectbox("Ano", ["Todos", *anos], index=1 if anos else 0, key=f"{chave}_ano")
         with b:
-            mes_label = st.selectbox("Mês", list(meses), key=f"{chave}_mes")
+            meses_sel = st.multiselect(
+                "Mês", list(meses.keys())[1:], placeholder="Todos os meses",
+                key=f"{chave}_meses",
+            )
         with c:
             lojas_sel = st.multiselect("Lojas", lojas, placeholder="Todas as lojas", key=f"{chave}_lojas")
         with d:
@@ -390,7 +399,7 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
     if enviado or chave_estado not in st.session_state:
         st.session_state[chave_estado] = {
             "ano": ano,
-            "mes": meses[mes_label] or "Todos",
+            "mes": tuple(meses[nome] for nome in meses_sel),
             "lojas": tuple(lojas_sel),
             "origem": origem,
             "estados": tuple(estados_sel),
@@ -399,6 +408,15 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         }
 
     escopo = dict(st.session_state[chave_estado])
+    mes_salvo = escopo.get("mes", ())
+    if mes_salvo in (None, "Todos"):
+        escopo["mes"] = ()
+    elif isinstance(mes_salvo, int):
+        escopo["mes"] = (mes_salvo,)
+    elif isinstance(mes_salvo, str):
+        escopo["mes"] = (int(mes_salvo),) if mes_salvo.isdigit() else ()
+    else:
+        escopo["mes"] = tuple(mes_salvo)
     escopo.setdefault("estados", ())
     escopo.setdefault("distritos", ())
     escopo.setdefault("regioes", ())
@@ -461,14 +479,14 @@ def limpar_filtros_dashboard() -> None:
     st.session_state.ranking_criterio = 'Valor rebaixado (R$)'
     for pagina in ("geral", "mensal"):
         st.session_state[f"{pagina}_ano"] = "Todos"
-        st.session_state[f"{pagina}_mes"] = "Todos"
+        st.session_state[f"{pagina}_meses"] = []
         st.session_state[f"{pagina}_lojas"] = []
         st.session_state[f"{pagina}_origem"] = "Todos"
         st.session_state[f"{pagina}_estados"] = []
         st.session_state[f"{pagina}_distritos"] = []
         st.session_state[f"{pagina}_regioes"] = []
         st.session_state[f"{pagina}_filtros_confirmados"] = {
-            "ano": "Todos", "mes": "Todos", "lojas": (), "origem": "Todos",
+            "ano": "Todos", "mes": (), "lojas": (), "origem": "Todos",
             "estados": (), "distritos": (), "regioes": ()
         }
     for categoria in ("motivo", "origem", "produto"):
