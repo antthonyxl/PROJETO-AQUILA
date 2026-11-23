@@ -766,28 +766,10 @@ def aplicar_tema(escuro: bool) -> None:
       outline:2px solid #FFBA64 !important;
       outline-offset:2px;
     }
-    /* BOTÃO RECOLHER MENU LATERAL - ÍCONE SEMPRE BRANCO */
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarHeader"] button,
-    [data-testid="stSidebar"] button[kind="header"] {
+    /* Somente a seta de recolher o menu */
+    [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
         color: #FFFFFF !important;
-    }
-
-    [data-testid="stSidebarCollapseButton"] svg,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stSidebarHeader"] button svg,
-    [data-testid="stSidebar"] button[kind="header"] svg {
-        color: #FFFFFF !important;
-        stroke: #FFFFFF !important;
-    }
-
-    [data-testid="stSidebarCollapseButton"]:hover,
-    [data-testid="stSidebarCollapsedControl"]:hover,
-    [data-testid="stSidebarHeader"] button:hover {
-        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
     }
     </style>
     '''.replace("__VARS__", variaveis)
