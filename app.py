@@ -1076,6 +1076,99 @@ def visao_geral(lote: tuple) -> None:
                 )
 
 
+def gerar_excel_evolucao_loja_mes(linhas: list[dict], totalizador: dict) -> bytes:
+    """Gera a planilha detalhada com valores numéricos e totalizador."""
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    arquivo = Workbook()
+    planilha = arquivo.active
+    planilha.title = "Evolução por loja"
+    planilha.sheet_view.showGridLines = False
+
+    cabecalhos = [
+        "Mês", "Loja", "Desconto (R$)", "ROB (R$)", "Meta (%)",
+        "% Desconto/ROB", "Teto (R$)", "Excesso (R$)", "Registros",
+    ]
+    planilha.append(cabecalhos)
+
+    def numero_excel(valor):
+        return float(valor) if valor is not None else None
+
+    for item in linhas:
+        planilha.append([
+            item["mes"], item["loja"], numero_excel(item["desconto"]),
+            numero_excel(item["rob"]), numero_excel(item["meta"]),
+            numero_excel(item["percentual"]), numero_excel(item["teto"]),
+            numero_excel(item["excesso"]), int(item["registros"]),
+        ])
+
+    planilha.append([
+        "TOTAL", "TODAS AS LOJAS",
+        numero_excel(totalizador["desconto"]),
+        numero_excel(totalizador["rob"]),
+        None,
+        numero_excel(totalizador["percentual"]),
+        numero_excel(totalizador["teto"]),
+        numero_excel(totalizador["excesso"]),
+        int(totalizador["registros"]),
+    ])
+
+    preenchimento_cabecalho = PatternFill("solid", fgColor="103B49")
+    preenchimento_total = PatternFill("solid", fgColor="103B49")
+    preenchimento_par = PatternFill("solid", fgColor="F0F5F7")
+    preenchimento_impar = PatternFill("solid", fgColor="FFFFFF")
+    fonte_branca = Font(name="Aptos", bold=True, color="FFFFFF", size=10)
+    fonte_normal = Font(name="Aptos", color="17313B", size=10)
+    fonte_total = Font(name="Aptos", bold=True, color="FFFFFF", size=10)
+    borda = Border(bottom=Side(style="hair", color="D7E1E5"))
+
+    for celula in planilha[1]:
+        celula.fill = preenchimento_cabecalho
+        celula.font = fonte_branca
+        celula.alignment = Alignment(horizontal="center", vertical="center")
+    planilha.row_dimensions[1].height = 25
+
+    linha_total = planilha.max_row
+    for linha in planilha.iter_rows(min_row=2, max_row=linha_total):
+        indice = linha[0].row
+        for celula in linha:
+            celula.font = fonte_normal
+            celula.border = borda
+            celula.alignment = Alignment(vertical="center")
+            celula.fill = preenchimento_par if indice % 2 == 0 else preenchimento_impar
+        linha[0].number_format = "mm/yyyy"
+        for indice_coluna in (3, 4, 7, 8):
+            linha[indice_coluna - 1].number_format = '"R$" #,##0.00'
+        linha[4].number_format = r"0.00\%"
+        linha[5].number_format = r"0.000\%"
+        linha[8].number_format = "#,##0"
+
+    for celula in planilha[linha_total]:
+        celula.fill = preenchimento_total
+        celula.font = fonte_total
+        celula.border = Border(top=Side(style="thin", color="103B49"))
+        celula.alignment = Alignment(vertical="center")
+    planilha.row_dimensions[linha_total].height = 23
+
+    larguras = {
+        "A": 13, "B": 34, "C": 19, "D": 20, "E": 13,
+        "F": 19, "G": 19, "H": 19, "I": 14,
+    }
+    for coluna, largura in larguras.items():
+        planilha.column_dimensions[coluna].width = largura
+
+    if linhas:
+        planilha.auto_filter.ref = f"A1:I{len(linhas) + 1}"
+    planilha.freeze_panes = "A2"
+    arquivo.properties.creator = "ÁQUILA"
+
+    buffer = BytesIO()
+    arquivo.save(buffer)
+    return buffer.getvalue()
+
+
 def evolucao_mensal(lote: tuple) -> None:
     titulo('Evolução Mensal','Descontos reais, receitas e metas históricas da rede.','ANÁLISE TEMPORAL / ÁQUILA')
     cabecalho_base(lote)
@@ -1095,6 +1188,47 @@ def evolucao_mensal(lote: tuple) -> None:
     hist_metas = metas_historicas()
     soma = conciliado['total']
     meses = conciliado['meses']
+
+    # Detalhamento na mesma granularidade da conciliação: uma linha por loja/mês.
+    # O agrupamento ocorre antes do JOIN com a ROB para não multiplicar receita.
+    detalhes_brutos = query(f"""
+        WITH por_unidade_mes AS (
+          SELECT SUBSTRING(BTRIM(empresa) FROM '^([0-9]{{3}})') AS codigo_loja,
+                 DATE_TRUNC('month', dta_movimento)::date AS mes,
+                 MIN(COALESCE(empresa,'Não informado')) AS loja,
+                 COALESCE(SUM(vlr_desconto),0) AS desconto,
+                 COUNT(*) AS registros
+          FROM public.pdv_descontos_atuais {onde_data}
+          GROUP BY 1,2
+        )
+        SELECT d.codigo_loja, d.mes, d.loja, d.desconto,
+               r.receita_bruta, d.registros
+        FROM por_unidade_mes d
+        LEFT JOIN public.rob_receitas_atuais r
+          ON r.codigo_loja=d.codigo_loja AND r.mes_vigencia=d.mes
+        ORDER BY d.mes, d.loja
+    """, params)
+
+    linhas_loja_mes = []
+    for codigo, mes, loja, desconto, receita, registros in detalhes_brutos:
+        # Reaproveita o motor oficial de conciliação para manter exatamente
+        # as mesmas regras de ROB, percentual, teto, excesso e cobertura.
+        calculo = calc_linhas(
+            [(codigo, mes, loja, desconto, receita)], hist_metas
+        )['total']
+        meta = meta_do_mes(mes, hist_metas)
+        cobertura = bool(calculo['cobertura_completa'])
+        linhas_loja_mes.append({
+            'mes': mes,
+            'loja': loja,
+            'desconto': calculo['desconto'],
+            'rob': calculo['receita'] if cobertura else None,
+            'meta': meta,
+            'percentual': calculo['percentual'],
+            'teto': calculo['teto'] if cobertura else None,
+            'excesso': calculo['excesso'],
+            'registros': int(registros or 0),
+        })
     if conciliado['faltantes']:
         st.warning(f"Há {len(conciliado['faltantes'])} combinações loja/mês sem ROB positiva. "
                    'Metas em reais e percentuais incompletos serão exibidos como indisponíveis.')
@@ -1145,6 +1279,60 @@ def evolucao_mensal(lote: tuple) -> None:
             brl(soma['excesso']) if soma['excesso'] is not None else '—',
             numero_br(sum(int(x[2]) for x in meses_desconto))),
            numeros=(1,2,3,4,5,6,7),fortes=(0,1))
+
+    secao('Detalhamento por loja e mês',
+          'Uma linha por unidade em cada mês.')
+    if linhas_loja_mes:
+        total_registros_detalhe = sum(item['registros'] for item in linhas_loja_mes)
+        total_detalhe = {
+            'desconto': soma['desconto'],
+            'rob': soma['receita'] if soma['cobertura_completa'] else None,
+            'percentual': soma['percentual'],
+            'teto': soma['teto'] if soma['cobertura_completa'] else None,
+            'excesso': soma['excesso'],
+            'registros': total_registros_detalhe,
+        }
+        linhas_visuais = [(
+            item['mes'].strftime('%m/%Y'), item['loja'], brl(item['desconto']),
+            brl(item['rob']) if item['rob'] is not None else '—',
+            f"{numero_br(item['meta'], 2)}%" if item['meta'] is not None else '—',
+            porcentagem_rob(item['percentual']),
+            brl(item['teto']) if item['teto'] is not None else '—',
+            brl(item['excesso']) if item['excesso'] is not None else '—',
+            numero_br(item['registros']),
+        ) for item in linhas_loja_mes]
+        total_visual = (
+            'TOTAL', 'TODAS AS LOJAS', brl(total_detalhe['desconto']),
+            brl(total_detalhe['rob']) if total_detalhe['rob'] is not None else '—',
+            '—', porcentagem_rob(total_detalhe['percentual']),
+            brl(total_detalhe['teto']) if total_detalhe['teto'] is not None else '—',
+            brl(total_detalhe['excesso']) if total_detalhe['excesso'] is not None else '—',
+            numero_br(total_detalhe['registros']),
+        )
+        col_info, col_download = st.columns([3.4, 1], vertical_alignment='center')
+        with col_info:
+            st.caption(f"{numero_br(len(linhas_loja_mes))} combinações loja/mês · "
+                       f"{numero_br(total_registros_detalhe)} registros")
+        with col_download:
+            planilha_excel = gerar_excel_evolucao_loja_mes(linhas_loja_mes, total_detalhe)
+            st.download_button(
+                'Baixar Excel', data=planilha_excel,
+                file_name=f"evolucao_mensal_loja_a_loja_{dt.datetime.now(ZoneInfo('America/Recife')).strftime('%Y%m%d_%H%M')}.xlsx",
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                icon=':material/download:', width='stretch',
+                key='download_evolucao_loja_mes',
+            )
+        tabela(
+            [('mes','Mês'),('loja','Loja'),('desconto','Desconto (R$)'),
+             ('rob','ROB (R$)'),('meta','Meta (%)'),('pct','% Desconto/ROB'),
+             ('teto','Teto (R$)'),('excesso','Excesso (R$)'),('registros','Registros')],
+            linhas_visuais, total_visual,
+            numeros=(2,3,4,5,6,7,8), fortes=(1,2),
+        )
+    else:
+        vazio('Nenhum detalhamento disponível',
+              'Não foram encontradas combinações de loja e mês para os filtros selecionados.')
+
     nota('Ambiente de Desenvolvimento, Não disponibilizar ou compartilhar os dados fora da rede corporativa.')
     if conciliado['faltantes']:
         with st.expander('Ver lojas e meses sem ROB válida',expanded=False):
