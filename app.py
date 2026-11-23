@@ -10,6 +10,8 @@ import decimal
 import hashlib
 import hmac
 import html
+import json
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import psycopg
@@ -203,7 +205,39 @@ def fig_historico_rebaixas(meses: list[tuple]) -> go.Figure:
     return fig
 
 
-def condicoes(ano, mes, lojas, origem) -> tuple[str, tuple]:
+def carregar_hierarquia_lojas() -> dict[str, dict[str, str]]:
+    """Lê o vínculo código da loja → estado, distrito e região do JSON externo."""
+    caminho = Path(__file__).resolve().parent / "lojas_hierarquia.json"
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        st.warning("Arquivo lojas_hierarquia.json não encontrado. Os filtros geográficos ficarão indisponíveis.")
+        return {}
+    except (OSError, json.JSONDecodeError) as erro:
+        st.warning(f"Não foi possível ler lojas_hierarquia.json: {erro}")
+        return {}
+
+    registros = dados.get("lojas", []) if isinstance(dados, dict) else []
+    if not isinstance(registros, list):
+        st.warning("O campo 'lojas' do arquivo lojas_hierarquia.json precisa ser uma lista.")
+        return {}
+
+    hierarquia: dict[str, dict[str, str]] = {}
+    for registro in registros:
+        if not isinstance(registro, dict):
+            continue
+        codigo = str(registro.get("codigo", "")).strip()
+        if not re.fullmatch(r"\d{1,3}", codigo):
+            continue
+        codigo = codigo.zfill(3)
+        hierarquia[codigo] = {
+            campo: str(registro.get(campo, "") or "").strip()
+            for campo in ("estado", "distrito", "regiao")
+        }
+    return hierarquia
+
+
+def condicoes(ano, mes, lojas, origem, filtro_hierarquia_ativo=False) -> tuple[str, tuple]:
     partes: list[str] = []
     params: list = []
     if ano != "Todos":
@@ -219,6 +253,10 @@ def condicoes(ano, mes, lojas, origem) -> tuple[str, tuple]:
     if lojas:
         partes.append("empresa = ANY(%s)")
         params.append(list(lojas))
+    elif filtro_hierarquia_ativo:
+        # Um filtro geográfico sem lojas correspondentes deve retornar zero linhas,
+        # nunca remover o filtro e exibir a rede inteira.
+        partes.append("FALSE")
     verificacao = "POSITION('CSC' IN UPPER(COALESCE(fiscal_cx, ''))) > 0"
     if origem == "CSC":
         partes.append(verificacao)
@@ -240,6 +278,16 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
         SELECT DISTINCT empresa FROM public.pdv_descontos_atuais
         WHERE empresa IS NOT NULL ORDER BY 1
     """)]
+    hierarquia = carregar_hierarquia_lojas()
+    metadados_disponiveis = [
+        hierarquia[codigo_loja(loja)]
+        for loja in lojas
+        if codigo_loja(loja) in hierarquia
+    ]
+    estados = sorted({item["estado"] for item in metadados_disponiveis if item["estado"]})
+    distritos = sorted({item["distrito"] for item in metadados_disponiveis if item["distrito"]})
+    regioes = sorted({item["regiao"] for item in metadados_disponiveis if item["regiao"]})
+
     meses = {"Todos": None, "Janeiro": 1, "Fevereiro": 2, "Março": 3,
              "Abril": 4, "Maio": 5, "Junho": 6, "Julho": 7, "Agosto": 8,
              "Setembro": 9, "Outubro": 10, "Novembro": 11, "Dezembro": 12}
@@ -254,7 +302,30 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
             lojas_sel = st.multiselect("Lojas", lojas, placeholder="Todas as lojas", key=f"{chave}_lojas")
         with d:
             origem = st.selectbox("Origem", ["Todos", "CSC", "Loja"], key=f"{chave}_origem")
+
+        e, f, g = st.columns([1, 1.2, 1.2])
+        with e:
+            estados_sel = st.multiselect(
+                "Estado", estados, placeholder="Todos os estados",
+                key=f"{chave}_estados", disabled=not estados,
+                help="Selecione um ou mais estados cadastrados no JSON."
+            )
+        with f:
+            distritos_sel = st.multiselect(
+                "Distrito", distritos, placeholder="Todos os distritos",
+                key=f"{chave}_distritos", disabled=not distritos,
+                help="Selecione um ou mais distritos cadastrados no JSON."
+            )
+        with g:
+            regioes_sel = st.multiselect(
+                "Região", regioes, placeholder="Todas as regiões",
+                key=f"{chave}_regioes", disabled=not regioes,
+                help="Selecione uma ou mais regiões cadastradas no JSON."
+            )
+        if not metadados_disponiveis:
+            st.caption("Para habilitar Estado, Distrito e Região, cadastre em lojas_hierarquia.json os códigos que aparecem no início do campo empresa da base.")
         enviado = st.form_submit_button("Aplicar filtros", type="primary", icon=":material/filter_alt:")
+
     # Só publica novos parâmetros depois do submit. Outros widgets, como o tema ou
     # as colunas opcionais do ranking, não mudam o escopo da consulta por acidente.
     chave_estado = f"{chave}_filtros_confirmados"
@@ -264,9 +335,48 @@ def filtros_dashboard(chave: str) -> tuple[str, tuple, dict]:
             "mes": meses[mes_label] or "Todos",
             "lojas": tuple(lojas_sel),
             "origem": origem,
+            "estados": tuple(estados_sel),
+            "distritos": tuple(distritos_sel),
+            "regioes": tuple(regioes_sel),
         }
-    escopo = st.session_state[chave_estado]
-    where, params = condicoes(escopo["ano"], escopo["mes"], escopo["lojas"], escopo["origem"])
+
+    escopo = dict(st.session_state[chave_estado])
+    # Compatibilidade com sessões que já estavam abertas antes da inclusão dos filtros.
+    escopo.setdefault("estados", ())
+    escopo.setdefault("distritos", ())
+    escopo.setdefault("regioes", ())
+
+    filtro_hierarquia_ativo = bool(
+        escopo["estados"] or escopo["distritos"] or escopo["regioes"]
+    )
+    if filtro_hierarquia_ativo:
+        lojas_aplicadas = []
+        lojas_escolhidas = set(escopo["lojas"])
+        for loja in lojas:
+            metadados = hierarquia.get(codigo_loja(loja))
+            if not metadados:
+                continue
+            if escopo["estados"] and metadados["estado"] not in escopo["estados"]:
+                continue
+            if escopo["distritos"] and metadados["distrito"] not in escopo["distritos"]:
+                continue
+            if escopo["regioes"] and metadados["regiao"] not in escopo["regioes"]:
+                continue
+            if lojas_escolhidas and loja not in lojas_escolhidas:
+                continue
+            lojas_aplicadas.append(loja)
+        lojas_aplicadas = tuple(lojas_aplicadas)
+    else:
+        lojas_aplicadas = tuple(escopo["lojas"])
+
+    escopo["lojas_aplicadas"] = lojas_aplicadas
+    escopo["filtro_hierarquia_ativo"] = filtro_hierarquia_ativo
+    if filtro_hierarquia_ativo and not lojas_aplicadas:
+        st.warning("Nenhuma loja corresponde à combinação de Estado, Distrito, Região e Lojas. Confira o cadastro no JSON.")
+    where, params = condicoes(
+        escopo["ano"], escopo["mes"], escopo["lojas_aplicadas"],
+        escopo["origem"], escopo["filtro_hierarquia_ativo"]
+    )
     return where, params, escopo
 
 
@@ -297,8 +407,12 @@ def limpar_filtros_dashboard() -> None:
         st.session_state[f"{pagina}_mes"] = "Todos"
         st.session_state[f"{pagina}_lojas"] = []
         st.session_state[f"{pagina}_origem"] = "Todos"
+        st.session_state[f"{pagina}_estados"] = []
+        st.session_state[f"{pagina}_distritos"] = []
+        st.session_state[f"{pagina}_regioes"] = []
         st.session_state[f"{pagina}_filtros_confirmados"] = {
-            "ano": "Todos", "mes": "Todos", "lojas": (), "origem": "Todos"
+            "ano": "Todos", "mes": "Todos", "lojas": (), "origem": "Todos",
+            "estados": (), "distritos": (), "regioes": ()
         }
     for categoria in ("motivo", "origem", "produto"):
         st.session_state[f"aq_tabela_versao_{categoria}"] = (
@@ -645,7 +759,8 @@ def visao_geral(lote: tuple) -> None:
     # O gráfico mantém o histórico do ano, mesmo quando um mês está selecionado.
     # Não ignora o escopo de loja ou de origem.
     onde_historico, params_historico = condicoes(
-        escopo['ano'], 'Todos', escopo['lojas'], escopo['origem']
+        escopo['ano'], 'Todos', escopo['lojas_aplicadas'],
+        escopo['origem'], escopo['filtro_hierarquia_ativo']
     )
     onde_historico, params_historico = condicoes_cruzadas(
         onde_historico, params_historico, filtros_cruzados_ativos()
@@ -685,10 +800,12 @@ def visao_geral(lote: tuple) -> None:
             tabela(colunas, registros, rodape, numeros=indices_numericos, fortes=indices_fortes)
             st.caption(f'{len(lojas_ranking)} lojas')
     with coluna_historico:
-        if len(escopo['lojas']) == 1:
-            titulo_historico = f"Rebaixas mensais · {escopo['lojas'][0]}"
-        elif len(escopo['lojas']) > 1:
-            titulo_historico = f"Rebaixas mensais · {len(escopo['lojas'])} lojas"
+        if escopo['filtro_hierarquia_ativo'] and not escopo['lojas_aplicadas']:
+            titulo_historico = 'Rebaixas mensais · nenhuma loja correspondente'
+        elif len(escopo['lojas_aplicadas']) == 1:
+            titulo_historico = f"Rebaixas mensais · {escopo['lojas_aplicadas'][0]}"
+        elif len(escopo['lojas_aplicadas']) > 1:
+            titulo_historico = f"Rebaixas mensais · {len(escopo['lojas_aplicadas'])} lojas"
         else:
             titulo_historico = 'Histórico mensal de rebaixas · rede'
         with st.container(border=True, key='aq_historico_panel'):

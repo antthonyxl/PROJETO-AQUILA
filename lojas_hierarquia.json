@@ -1,0 +1,500 @@
+{
+  "_instrucoes": [
+    "O aplicativo lê somente os registros dentro da lista 'lojas'.",
+    "Copie os exemplos da lista 'modelo' para 'lojas' e substitua os dados pelos dados reais.",
+    "O campo 'codigo' deve conter os 3 primeiros dígitos do código da loja que aparece no campo empresa da base.",
+    "Os campos 'estado', 'distrito' e 'regiao' são usados nos filtros do dashboard.",
+    "O campo 'loja' é apenas uma identificação para facilitar a manutenção do cadastro; o vínculo é feito pelo código."
+  ],
+  "lojas": [
+    {
+      "codigo": "001",
+      "loja": "001-CARPINA",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "002",
+      "loja": "002-VIT.SA",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "003",
+      "loja": "003-ARCOVERD",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "004",
+      "loja": "004-STACRUZ",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "005",
+      "loja": "005-BONGI",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "006",
+      "loja": "006-PAULISTA",
+      "estado": "PE",
+      "distrito": "EVELAYNE BARROS",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "007",
+      "loja": "007-GOIANA",
+      "estado": "PE",
+      "distrito": "MANADABIS LOPES",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "008",
+      "loja": "008-2 IRMAOS",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "009",
+      "loja": "009-SURUBIM",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "010",
+      "loja": "010-S LOUREN",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "011",
+      "loja": "011-GRAVATA",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "012",
+      "loja": "012-LIMOEIRO",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "013",
+      "loja": "013-ESCADA",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "014",
+      "loja": "014-CABO",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "015",
+      "loja": "015-OURICURI",
+      "estado": "PE",
+      "distrito": "THOMAS BRETTAS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "016",
+      "loja": "016-BELOJARD",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "017",
+      "loja": "017-MURIBECA",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "018",
+      "loja": "018-AFOGADOS",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "019",
+      "loja": "019-BEZERROS",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "020",
+      "loja": "020-TIMBAUBA",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "021",
+      "loja": "021-CARP TRE",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "022",
+      "loja": "022-BARREIRO",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "023",
+      "loja": "023-PEDRA FG",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "024",
+      "loja": "024-2 UNIDOS",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "026",
+      "loja": "026-FORROCK",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "027",
+      "loja": "027-VARZEA",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "028",
+      "loja": "028-FRAGOSO",
+      "estado": "PE",
+      "distrito": "EVELAYNE BARROS",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "029",
+      "loja": "029-S MATEUS",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "030",
+      "loja": "030-PAUL CT",
+      "estado": "PE",
+      "distrito": "MANADABIS LOPES",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "031",
+      "loja": "031-RIBEIRAO",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "032",
+      "loja": "032-ARARIPINA",
+      "estado": "PE",
+      "distrito": "THOMAS BRETTAS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "033",
+      "loja": "033-SALGUEIRO",
+      "estado": "PE",
+      "distrito": "THOMAS BRETTAS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "034",
+      "loja": "034-CARUARU",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "035",
+      "loja": "035-ABREU LIMA",
+      "estado": "PE",
+      "distrito": "MANADABIS LOPES",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "036",
+      "loja": "036-CAMARAGIBE",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "037",
+      "loja": "037-TORITAMA",
+      "estado": "PE",
+      "distrito": "DIVANE LOPES",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "038",
+      "loja": "038-GARANHUNS",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "039",
+      "loja": "039-CURADO",
+      "estado": "PE",
+      "distrito": "ADRIANO FIRMINO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "040",
+      "loja": "040-IGARASSU",
+      "estado": "PE",
+      "distrito": "MANADABIS LOPES",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "041",
+      "loja": "041-MUSTARDINHA",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "042",
+      "loja": "042-CAR KENNEDY",
+      "estado": "PE",
+      "distrito": "DANILO CYSNEIROS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "043",
+      "loja": "043-CAR UNIVERS",
+      "estado": "PE",
+      "distrito": "CARUARU UNIVERSITARIO",
+      "regiao": "PREMIUM"
+    },
+    {
+      "codigo": "044",
+      "loja": "044-PEIXINHOS",
+      "estado": "PE",
+      "distrito": "EVELAYNE BARROS",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "045",
+      "loja": "045-C.CAIADA",
+      "estado": "PE",
+      "distrito": "ANTONIO CAVALCANTI",
+      "regiao": "PREMIUM"
+    },
+    {
+      "codigo": "046",
+      "loja": "046-AREIAS",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "047",
+      "loja": "047-BOA VIAGEM",
+      "estado": "PE",
+      "distrito": "ANTONIO CAVALCANTI",
+      "regiao": "PREMIUM"
+    },
+    {
+      "codigo": "048",
+      "loja": "048-CAXANGA",
+      "estado": "PE",
+      "distrito": "ROMULO EMANUEL",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "049",
+      "loja": "049-M H C.FORTE",
+      "estado": "PE",
+      "distrito": "ANTONIO CAVALCANTI",
+      "regiao": "PREMIUM"
+    },
+    {
+      "codigo": "050",
+      "loja": "050-SANTO AMARO",
+      "estado": "PE",
+      "distrito": "EVELAYNE BARROS",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "051",
+      "loja": "051-MARANGAPE",
+      "estado": "PE",
+      "distrito": "MANADABIS LOPES",
+      "regiao": "ANTÔNIO PINHO"
+    },{
+      "codigo": "052",
+      "loja": "052-JANGA",
+      "estado": "PE",
+      "distrito": "EVELAYNE BARROS",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "053",
+      "loja": "053-PETROLINA",
+      "estado": "PE",
+      "distrito": "THOMAS BRETTAS",
+      "regiao": "FERNANDO CAZZETTA"
+    },
+    {
+      "codigo": "054",
+      "loja": "054-JABOATAO",
+      "estado": "PE",
+      "distrito": "HENRIQUE CAMPELO",
+      "regiao": "ANTÔNIO PINHO"
+    },
+    {
+      "codigo": "055",
+      "loja": "055-BAYEUX",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "056",
+      "loja": "056-CAJAZEIRAS",
+      "estado": "PB",
+      "distrito": "ANTONIO MOURA",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "057",
+      "loja": "057-C.GRANDE",
+      "estado": "PB",
+      "distrito": "ANTONIO MOURA",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "058",
+      "loja": "058-SOUSA",
+      "estado": "PB",
+      "distrito": "ANTONIO MOURA",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "059",
+      "loja": "059-PATOS",
+      "estado": "PB",
+      "distrito": "ANTONIO MOURA",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "060",
+      "loja": "060-TABULEIRO",
+      "estado": "AL",
+      "distrito": "HELENO RODRIGUES",
+      "regiao": "EMERSON FARIA"
+    },
+    {
+      "codigo": "061",
+      "loja": "061-SERRARIA",
+      "estado": "AL",
+      "distrito": "HELENO RODRIGUES",
+      "regiao": "EMERSON FARIA"
+    },
+    {
+      "codigo": "062",
+      "loja": "062-ANTARES",
+      "estado": "AL",
+      "distrito": "HELENO RODRIGUES",
+      "regiao": "EMERSON FARIA"
+    },
+    {
+      "codigo": "063",
+      "loja": "063-TRAPICHE",
+      "estado": "AL",
+      "distrito": "HELENO RODRIGUES",
+      "regiao": "EMERSON FARIA"
+    },
+    {
+      "codigo": "064",
+      "loja": "064-GUARABIRA",
+      "estado": "PB",
+      "distrito": "ANTONIO MOURA",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "065",
+      "loja": "065-CABEDELO",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "066",
+      "loja": "066-ARAPIRACA",
+      "estado": "AL",
+      "distrito": "HELENO RODRIGUES",
+      "regiao": "EMERSON FARIA"
+    },
+    {
+      "codigo": "067",
+      "loja": "067-VALENTINA",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "068",
+      "loja": "068-ALTIPLANO",
+      "estado": "PB",
+      "distrito": "VALDERI FILHO",
+      "regiao": "CALUDIO BRETTAS"
+    },
+    {
+      "codigo": "443",
+      "loja": "443-RES CAR UNI",
+      "estado": "PE",
+      "distrito": "RESTAURANTES",
+      "regiao": "RESTAURANTES"
+    },
+    {
+      "codigo": "445",
+      "loja": "445-RES C.CAIAD",
+      "estado": "PE",
+      "distrito": "RESTAURANTES",
+      "regiao": "RESTAURANTES"
+    },
+    {
+      "codigo": "447",
+      "loja": "447-RES B.VIAGE",
+      "estado": "PE",
+      "distrito": "RESTAURANTES",
+      "regiao": "RESTAURANTES"
+    }
+  ]
+}
