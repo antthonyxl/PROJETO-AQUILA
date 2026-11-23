@@ -583,7 +583,7 @@ def visao_geral(lote: tuple) -> None:
 
     st.write("")
     c_fin1, c_fin2, c_fin3, c_fin4 = st.columns(4, gap='medium')
-    with c_fin1: kpi('Receita bruta conciliada', brl(consolidado['receita'], True), 'Somada uma vez por loja/mês', 'blue')
+    with c_fin1: kpi('Receita Operacional Bruta (ROB)', brl(consolidado['receita'], True), 'Somada uma vez por loja/mês', 'blue')
     with c_fin2: kpi('% desconto / ROB', porcentagem_rob(consolidado['percentual']),
                      'Disponível apenas com cobertura completa', 'orange')
     with c_fin3: kpi('Teto pela meta', brl(consolidado['teto'], True) if consolidado['cobertura_completa'] else '—',
@@ -591,17 +591,17 @@ def visao_geral(lote: tuple) -> None:
     with c_fin4: kpi('Oportunidade de redução', brl(consolidado['excesso'], True) if consolidado['excesso'] is not None else '—',
                      'Excesso de descontos acima do teto', 'orange')
 
-    secao('Ranking de lojas em rebaixa de preço',
+    secao('Ranking de lojas - Desconto Manual em PDV',
           'Todas as lojas com descontos no período')
     # Botões convencionais evitam o contraste imprevisível de st.segmented_control
     # quando a aparência é alternada via CSS sem trocar o tema global do Streamlit.
     if 'ranking_criterio' not in st.session_state:
-        st.session_state.ranking_criterio = 'Valor rebaixado (R$)'
+        st.session_state.ranking_criterio = 'Valor Desconto Manual (R$)'
     st.markdown('<div class="aq-filter-label">Ordenar ranking por</div>', unsafe_allow_html=True)
     escolha_valor, escolha_percentual, _ = st.columns([1.45, 1.40, 3.0], gap='small')
     with escolha_valor:
-        st.button('Valor rebaixado (R$)', key='ranking_btn_valor',
-                  type='primary' if st.session_state.ranking_criterio == 'Valor rebaixado (R$)' else 'secondary',
+        st.button('Valor Desconto Manual (R$)', key='ranking_btn_valor',
+                  type='primary' if st.session_state.ranking_criterio == 'Valor Desconto Manual (R$)' else 'secondary',
                   width='stretch', on_click=selecionar_ranking, args=('Valor rebaixado (R$)',))
     with escolha_percentual:
         st.button('% desconto / ROB', key='ranking_btn_percentual',
@@ -1125,7 +1125,7 @@ import plotly.graph_objects as go
 
 
 with st.sidebar:
-    st.markdown('<div class="aq-brand">TESTE V1.1<small>ANALYTICS · PDV</small></div>', unsafe_allow_html=True)
+    st.markdown('<div class="aq-brand">Novo Atacarejo<small>ANALYTICS · PDV</small></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="aq-user"><div class="aq-user-name">{escape(ADMIN_USER)}</div>'
                 '<div class="aq-user-sub">Administrador do sistema</div></div>', unsafe_allow_html=True)
     st.markdown('<div class="aq-sidebar-label">MENU PRINCIPAL</div>', unsafe_allow_html=True)
