@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import datetime as dt
 import decimal
-import hashlib
-import hmac
 import html
 import json
+import logging
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -20,11 +19,23 @@ from psycopg_pool import ConnectionPool
 
 from aquila_visual import aplicar_tema, cabecalho, kpi, nota, paleta, secao, tabela, tabela_selecionavel, vazio
 from aquila_runtime import configuracao_pool
+from aquila_seguranca import (
+    ControladorTentativasLogin,
+    autenticar_admin,
+    encerrar_sessao,
+    iniciar_sessao,
+    obter_ip_cliente,
+    sanitizar_celula_excel,
+    sessao_valida,
+    verificar_senha,
+)
 from filtros_interativos import filtros_vazios, alternar_filtro, condicoes_cruzadas
 from rob_metricas import calc_linhas, pct, d
 from ranking_compacto import preparar_ranking_compacto
 from decimal import Decimal
 import re
+
+LOG = logging.getLogger("aquila.app")
 
 st.set_page_config(page_title="Controle Descontos PDV", page_icon=":material/analytics:", layout="wide", initial_sidebar_state="expanded")
 
@@ -54,6 +65,7 @@ def segredo(chave: str) -> str:
 
 
 DB_URL = segredo("SUPABASE_DB_URL")
+DB_READONLY_URL = segredo("SUPABASE_DB_READONLY_URL") or DB_URL
 ADMIN_USER = segredo("ADMIN_USER")
 ADMIN_PASSWORD_HASH = segredo("ADMIN_PASSWORD_HASH")
 
@@ -61,7 +73,7 @@ ADMIN_PASSWORD_HASH = segredo("ADMIN_PASSWORD_HASH")
 @st.cache_resource
 def pool_banco() -> ConnectionPool:
     """Reutiliza conexões entre consultas, com limite por processo."""
-    return ConnectionPool(DB_URL, **configuracao_pool(),
+    return ConnectionPool(DB_READONLY_URL, **configuracao_pool(),
                           check=ConnectionPool.check_connection)
 
 
@@ -72,15 +84,6 @@ def query(sql: str, params: tuple = ()) -> list[tuple]:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             return cur.fetchall() if cur.description else []
-
-
-def verificar_senha(senha: str, armazenada: str) -> bool:
-    try:
-        salt, esperado = armazenada.split(":", 1)
-        calculado = hashlib.pbkdf2_hmac("sha256", senha.encode(), bytes.fromhex(salt), 600_000)
-        return hmac.compare_digest(calculado.hex(), esperado)
-    except (ValueError, TypeError):
-        return False
 
 
 def escape(valor: object) -> str:
@@ -214,7 +217,8 @@ def carregar_hierarquia_lojas() -> dict[str, dict[str, str]]:
         st.warning("Arquivo lojas_hierarquia.json não encontrado. Os filtros geográficos ficarão indisponíveis.")
         return {}
     except (OSError, json.JSONDecodeError) as erro:
-        st.warning(f"Não foi possível ler lojas_hierarquia.json: {erro}")
+        LOG.warning("Falha ao ler lojas_hierarquia.json: %s", erro)
+        st.warning("Não foi possível ler lojas_hierarquia.json. Verifique a integridade do arquivo.")
         return {}
 
     registros = dados.get("lojas", []) if isinstance(dados, dict) else []
@@ -1098,7 +1102,7 @@ def gerar_excel_evolucao_loja_mes(linhas: list[dict], totalizador: dict) -> byte
 
     for item in linhas:
         planilha.append([
-            item["mes"], item["loja"], numero_excel(item["desconto"]),
+            item["mes"], sanitizar_celula_excel(item["loja"]), numero_excel(item["desconto"]),
             numero_excel(item["rob"]), numero_excel(item["meta"]),
             numero_excel(item["percentual"]), numero_excel(item["teto"]),
             numero_excel(item["excesso"]), int(item["registros"]),
@@ -1333,7 +1337,7 @@ def evolucao_mensal(lote: tuple) -> None:
         vazio('Nenhum detalhamento disponível',
               'Não foram encontradas combinações de loja e mês para os filtros selecionados.')
 
-    nota('Ambiente de Desenvolvimento, Não disponibilizar ou compartilhar os dados fora da rede corporativa.')
+    nota('Uso interno corporativo. Não disponibilizar ou compartilhar os dados fora da rede autorizada.')
     if conciliado['faltantes']:
         with st.expander('Ver lojas e meses sem ROB válida',expanded=False):
             tabela([('codigo','Código'),('mes','Mês'),('motivo','Pendência')],
@@ -1365,11 +1369,14 @@ def administracao() -> None:
                             st.cache_data.clear()
                             barra.progress(1.0, text="Nova base publicada")
                             aviso.success(f"Publicação concluída: {numero_br(resultado['linhas'])} registros substituíram a base anterior.")
-                        except Exception as erro:
-                            st.error(f"A importação não foi concluída. Verifique o arquivo: {type(erro).__name__}: {erro}")
+                        except ValueError as erro:
+                            st.error(f"A importação não foi concluída. Verifique o arquivo: {erro}")
+                        except Exception:
+                            LOG.exception("Erro interno na importação da base de descontos")
+                            st.error("Falha interna durante a importação. A base anterior foi preservada.")
                 atual = base_ativa()
                 if atual:
-                    st.caption(f"Base em produção: **{atual[0]}** · {numero_br(atual[1])} registros")
+                    st.caption(f"Base em produção: **{escape(atual[0])}** · {numero_br(atual[1])} registros")
     with aba_rob:
         if aba_rob.open:
             with st.container(border=True):
@@ -1397,8 +1404,11 @@ def administracao() -> None:
                                            f"{resultado['zeradas']} zeradas. Serão sinalizadas na análise, "
                                            'não usadas como denominador.')
                             st.rerun()
-                        except Exception as erro:
-                            st.error(f'Falha na importação ROB (base anterior preservada): {type(erro).__name__}: {erro}')
+                        except ValueError as erro:
+                            st.error(f"Falha na importação ROB (base anterior preservada): {erro}")
+                        except Exception:
+                            LOG.exception("Erro interno na importação da base ROB")
+                            st.error("Falha interna na importação ROB (base anterior preservada).")
                 ativa = base_rob_ativa()
                 if ativa:
                     st.caption(f'ROB em produção: **{escape(ativa[0])}** · {numero_br(ativa[1])} registros')
@@ -1462,11 +1472,17 @@ def administracao() -> None:
                 st.markdown("**Próxima etapa:** autorização por loja/distrito na consulta SQL, controle de sessão e gerenciamento de usuários.")
 
 
+@st.cache_resource
+def controlador_login() -> ControladorTentativasLogin:
+    """Mantém contador de tentativas por processo para bloquear força bruta."""
+    return ControladorTentativasLogin()
+
+
 if not DB_URL or not ADMIN_USER or not ADMIN_PASSWORD_HASH:
     st.error("Configure SUPABASE_DB_URL, ADMIN_USER e ADMIN_PASSWORD_HASH no Secrets do Streamlit.")
     st.stop()
 
-if not st.session_state.get("admin_ok"):
+if not sessao_valida(st.session_state):
     st.set_page_config(initial_sidebar_state="collapsed")
     with st.container(key="login_layout"):
         marca, acesso = st.columns([1.15, 1], gap="large", vertical_alignment="center")
@@ -1488,11 +1504,24 @@ if not st.session_state.get("admin_ok"):
                     senha = st.text_input("Senha", type="password", placeholder="Sua senha", key="login_senha")
                     entrar = st.form_submit_button("Acessar painel", type="primary", width="stretch")
                 if entrar:
-                    if hmac.compare_digest(usuario.strip(), ADMIN_USER) and verificar_senha(senha, ADMIN_PASSWORD_HASH):
-                        st.session_state.admin_ok = True
+                    controlador = controlador_login()
+                    ip_cliente = obter_ip_cliente(getattr(st.context, "headers", None))
+                    bloqueio = controlador.segundos_bloqueado(ip_cliente, usuario)
+                    if bloqueio > 0:
+                        LOG.warning("Tentativa de login bloqueada por rate limit (ip=%s, restante=%ss)", ip_cliente, bloqueio)
+                        st.error(f"Muitas tentativas inválidas. Aguarde {bloqueio} segundos e tente novamente.")
+                    elif autenticar_admin(usuario, senha, ADMIN_USER, ADMIN_PASSWORD_HASH):
+                        controlador.registrar_sucesso(ip_cliente, usuario)
+                        iniciar_sessao(st.session_state)
+                        LOG.info("Autenticação administrativa bem-sucedida (ip=%s)", ip_cliente)
                         st.rerun()
                     else:
-                        st.error("Usuário ou senha incorretos.")
+                        duracao = controlador.registrar_falha(ip_cliente, usuario)
+                        LOG.warning("Falha de autenticação administrativa (ip=%s, bloqueio=%ss)", ip_cliente, duracao)
+                        if duracao > 0:
+                            st.error(f"Muitas tentativas inválidas. Aguarde {duracao} segundos e tente novamente.")
+                        else:
+                            st.error("Usuário ou senha incorretos.")
                 st.caption("Acesso restrito à administração da rede.")
     st.stop()
 
@@ -1529,7 +1558,7 @@ with st.sidebar:
     st.markdown('<div class="aq-sidebar-footer">GESTÃO DE DESCONTOS PDV<br>'
                 'Painel executivo e operacional de descontos.</div>', unsafe_allow_html=True)
     if st.button("Sair do sistema", key="sair_app", width="stretch"):
-        st.session_state.admin_ok = False
+        encerrar_sessao(st.session_state)
         st.session_state.aq_pagina = "geral"
         st.rerun()
 
@@ -1546,5 +1575,10 @@ try:
         else:
             visao_geral(lote)
 except psycopg.Error as erro:
-    st.error(f"Falha na consulta ao Supabase ({type(erro).__name__}). Verifique a conexão e o SQL de instalação.")
+    LOG.error("Falha de banco de dados ao renderizar painel (%s)", type(erro).__name__)
+    st.error("Falha na consulta ao banco de dados. Verifique a conexão e tente novamente.")
+    st.stop()
+except Exception:
+    LOG.exception("Erro interno não tratado ao renderizar painel")
+    st.error("Ocorreu um erro interno ao processar a solicitação.")
     st.stop()

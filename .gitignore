@@ -17,4 +17,4 @@ reports/
 descontos_pdv.txt
 *.log
 secrets.toml.example
-sql
+sql/app.py

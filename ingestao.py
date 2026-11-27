@@ -3,7 +3,6 @@ from __future__ import annotations
 import datetime as dt
 import decimal
 import os
-import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -11,6 +10,8 @@ from typing import BinaryIO
 
 import psycopg
 from openpyxl import load_workbook
+
+from aquila_seguranca import salvar_upload_xlsx_temporario, validar_arquivo_xlsx
 
 COLUNAS = [
     'empresa', 'dta_movimento', 'hora_emissao', 'segmento', 'seqpessoa', 'cliente',
@@ -51,6 +52,7 @@ def importar_excel(
     tamanho_lote: int = 2000,
 ) -> dict:
     caminho = Path(arquivo)
+    validar_arquivo_xlsx(caminho)
     wb = load_workbook(caminho, read_only=True, data_only=True)
     lote = uuid.uuid4()
     linhas = 0
@@ -114,11 +116,9 @@ def importar_excel(
 
 
 def importar_upload(upload: BinaryIO, conexao: str, progresso=None) -> dict:
-    with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-        caminho = tmp.name
-        while chunk := upload.read(1024 * 1024):
-            tmp.write(chunk)
+    caminho = salvar_upload_xlsx_temporario(upload)
     try:
         return importar_excel(caminho, conexao, getattr(upload, 'name', 'base.xlsx'), progresso)
     finally:
-        os.unlink(caminho)
+        if os.path.exists(caminho):
+            os.unlink(caminho)

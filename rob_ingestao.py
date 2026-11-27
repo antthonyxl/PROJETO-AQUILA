@@ -5,11 +5,12 @@ import datetime as dt
 import decimal
 import os
 import re
-import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import BinaryIO
+
+from aquila_seguranca import salvar_upload_xlsx_temporario, validar_arquivo_xlsx
 
 
 CABECALHO = ("Loja", "Vlr Venda Atual", "Ano/Mês")
@@ -48,6 +49,7 @@ def importar_rob_excel(
     progresso: Callable[[int], None] | None = None, tamanho_lote: int = 1500,
 ) -> dict:
     caminho = Path(arquivo)
+    validar_arquivo_xlsx(caminho)
     import psycopg
     from openpyxl import load_workbook
     wb = load_workbook(caminho, read_only=True, data_only=True)
@@ -118,11 +120,9 @@ def importar_rob_excel(
 
 
 def importar_upload_rob(upload: BinaryIO, conexao: str, progresso=None) -> dict:
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as temporario:
-        caminho = temporario.name
-        while bloco := upload.read(1024 * 1024):
-            temporario.write(bloco)
+    caminho = salvar_upload_xlsx_temporario(upload)
     try:
         return importar_rob_excel(caminho, conexao, getattr(upload, "name", "rob.xlsx"), progresso)
     finally:
-        os.unlink(caminho)
+        if os.path.exists(caminho):
+            os.unlink(caminho)

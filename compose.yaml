@@ -1,6 +1,15 @@
 x-aquila: &aquila
   build: .
   restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=300m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  mem_limit: 1g
+  cpus: "1.5"
   environment:
     STREAMLIT_SERVER_COOKIE_SECRET: ${AQUILA_COOKIE_SECRET:?Defina AQUILA_COOKIE_SECRET no ambiente}
     AQUILA_DB_POOL_MAX: ${AQUILA_DB_POOL_MAX:-8}
@@ -22,6 +31,10 @@ services:
   proxy:
     image: nginx:stable-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: "0.5"
     ports:
       - "127.0.0.1:8080:80"
     volumes:

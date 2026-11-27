@@ -74,10 +74,10 @@ VALUES ('2026-01-01', 0.04, 'sistema') ON CONFLICT (mes_vigencia) DO NOTHING;
 -- A troca para um novo lote é atômica: se ocorrer erro, o lote anterior permanece ativo.
 -- A exclusão dos dados antigos ocorre na mesma transação.
 CREATE OR REPLACE FUNCTION public.pdv_ativar_lote(p_lote uuid)
-RETURNS void LANGUAGE plpgsql AS $$
+RETURNS void LANGUAGE plpgsql SET search_path = '' AS $$
 DECLARE v_qtd integer; v_antigo uuid;
 BEGIN
-    PERFORM pg_advisory_xact_lock(20261109, 1);
+    PERFORM pg_catalog.pg_advisory_xact_lock(20261109, 1);
     SELECT COUNT(*) INTO v_qtd FROM public.pdv_descontos WHERE lote_id = p_lote;
     IF v_qtd = 0 THEN RAISE EXCEPTION 'Lote vazio; base atual preservada'; END IF;
     IF NOT EXISTS (SELECT 1 FROM public.pdv_lotes WHERE id = p_lote AND status = 'carregando') THEN
